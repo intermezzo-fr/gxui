@@ -37,14 +37,15 @@ func (a *DefaultAdapter) SetSizeAsLargest(theme Theme) {
 	s := math.Size{}
 	font := theme.DefaultFont()
 	for i := 0; i < a.Count(); i++ {
-		e := a.items.Index(i).Interface()
-		switch t := e.(type) {
+		switch t := a.ItemAt(i).(type) {
 		case Viewer:
 			s = s.Max(t.View(theme).DesiredSize(math.ZeroSize, math.MaxSize))
+
 		case Stringer:
 			s = s.Max(font.Measure(t.String()))
+
 		default:
-			str := fmt.Sprintf("%+v", e)
+			str := fmt.Sprintf("%+v", t)
 			s = s.Max(font.Measure(str))
 		}
 	}
@@ -57,15 +58,34 @@ func (a *DefaultAdapter) SetStyleLabel(f func(Theme, Label)) {
 }
 
 func (a *DefaultAdapter) Count() int {
-	if a.items.IsValid() {
-		return a.items.Len()
-	} else {
+	if !a.items.IsValid() {
 		return 0
+	}
+
+	switch a.items.Kind() {
+	case reflect.Slice, reflect.Array:
+		return a.items.Len()
+
+	default:
+		return 1
 	}
 }
 
 func (a *DefaultAdapter) ItemAt(index int) AdapterItem {
-	return a.items.Index(index).Interface()
+	count := a.Count()
+	if index < 0 || index >= count {
+		panic(fmt.Errorf("ItemAt index %d is out of bounds [%d, %d]",
+			index, 0, count-1))
+	}
+
+	switch a.items.Kind() {
+	case reflect.Slice, reflect.Array:
+		return a.items.Index(index).Interface()
+
+	default:
+		return a.items.Interface()
+	}
+
 }
 
 func (a *DefaultAdapter) ItemIndex(item AdapterItem) int {
@@ -82,10 +102,10 @@ func (a *DefaultAdapter) SetSize(s math.Size) {
 }
 
 func (a *DefaultAdapter) Create(theme Theme, index int) Control {
-	e := a.items.Index(index).Interface()
-	switch t := e.(type) {
+	switch t := a.ItemAt(index).(type) {
 	case Viewer:
 		return t.View(theme)
+
 	case Stringer:
 		l := theme.CreateLabel()
 		l.SetMargin(math.ZeroSpacing)
@@ -95,11 +115,12 @@ func (a *DefaultAdapter) Create(theme Theme, index int) Control {
 			a.styleLabel(theme, l)
 		}
 		return l
+
 	default:
 		l := theme.CreateLabel()
 		l.SetMargin(math.ZeroSpacing)
 		l.SetMultiline(false)
-		l.SetText(fmt.Sprintf("%+v", e))
+		l.SetText(fmt.Sprintf("%+v", t))
 		if a.styleLabel != nil {
 			a.styleLabel(theme, l)
 		}
@@ -115,8 +136,7 @@ func (a *DefaultAdapter) SetItems(items interface{}) {
 	a.items = reflect.ValueOf(items)
 	a.itemToIndex = make(map[AdapterItem]int)
 	for idx := 0; idx < a.Count(); idx++ {
-		item := a.items.Index(idx).Interface()
-		a.itemToIndex[item] = idx
+		a.itemToIndex[a.ItemAt(idx)] = idx
 	}
 	a.DataReplaced()
 }

@@ -14,21 +14,21 @@ type CreateExpandButton func(theme gxui.Theme, node *TreeInternalNode) gxui.Butt
 type TreeToListAdapter struct {
 	gxui.AdapterBase
 	createExpandButton CreateExpandButton
-	adapter            gxui.TreeAdapter
+	adapter            gxui.Adapter
 	root               *TreeInternalNode
 }
 
-func CreateTreeToListAdapter(inner gxui.TreeAdapter, ceb CreateExpandButton) *TreeToListAdapter {
+func CreateTreeToListAdapter(adapter gxui.Adapter, ceb CreateExpandButton) *TreeToListAdapter {
 	outer := &TreeToListAdapter{
 		createExpandButton: ceb,
-		adapter:            inner,
-		root:               CreateTreeInternalRoot(inner),
+		adapter:            adapter,
+		root:               CreateTreeInternalRoot(adapter),
 	}
-	inner.OnDataReplaced(func() {
-		outer.root = CreateTreeInternalRoot(inner)
+	adapter.OnDataReplaced(func() {
+		outer.root = CreateTreeInternalRoot(adapter)
 		outer.DataReplaced()
 	})
-	inner.OnDataChanged(outer.DataChanged)
+	adapter.OnDataChanged(outer.DataChanged)
 
 	return outer
 }
@@ -64,7 +64,7 @@ func (a TreeToListAdapter) DeepestVisibleAncestor(item gxui.AdapterItem) gxui.Ad
 
 // Adapter compliance
 func (a TreeToListAdapter) Count() int {
-	return a.root.childCount
+	return a.root.descendants
 }
 
 func (a TreeToListAdapter) ItemAt(index int) gxui.AdapterItem {
@@ -89,10 +89,10 @@ func (a TreeToListAdapter) Create(theme gxui.Theme, index int) gxui.Control {
 		a.DataChanged()
 	})
 
-	control := n.adapterNode.Create(theme, i)
+	control := n.node.Create(theme, i)
 
 	layout := theme.CreateLinearLayout()
-	layout.SetPadding(math.Spacing{L: d * 16, T: 0, R: 0, B: 0})
+	layout.SetPadding(math.Spacing{L: d * 16})
 	layout.SetOrientation(gxui.Horizontal)
 	layout.AddChild(toggle)
 	layout.AddChild(control)

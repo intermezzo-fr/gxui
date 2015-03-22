@@ -11,125 +11,99 @@ import (
 	"github.com/google/gxui/themes/dark"
 )
 
-type treeAdapterNode struct {
-	children []treeAdapterNode
-	item     string
+// item is the adapter item type for the tree adapter. item conforms to the
+// TreeNode interface, making the items with children expandable.
+type item struct {
+	name     string
+	children []*item
 }
 
-func (n treeAdapterNode) Count() int {
+// String returns the item name. It is used by the DefaultAdapter to visualize
+// the item as a Label.
+func (n item) String() string {
+	return n.name
+}
+
+func (n item) Count() int {
 	return len(n.children)
 }
 
-func (n treeAdapterNode) ItemAt(index int) gxui.AdapterItem {
-	return n.children[index].item
+func (n item) ItemAt(index int) gxui.AdapterItem {
+	return n.children[index]
 }
 
-func (n treeAdapterNode) ItemIndex(item gxui.AdapterItem) int {
+func (n item) ItemIndex(item gxui.AdapterItem) int {
 	for i, c := range n.children {
-		if c.item == item {
-			return i
-		}
-		if c.ItemIndex(item) >= 0 {
+		if c == item || c.ItemIndex(item) >= 0 {
 			return i
 		}
 	}
 	return -1
 }
 
-func (n treeAdapterNode) Create(theme gxui.Theme, index int) gxui.Control {
+func (n item) Create(theme gxui.Theme, index int) gxui.Control {
 	l := theme.CreateLabel()
-	l.SetText(n.children[index].item)
+	l.SetText(n.children[index].name)
 	return l
-}
-
-func (n treeAdapterNode) CreateNode(index int) gxui.TreeAdapterNode {
-	if len(n.children[index].children) > 0 {
-		return n.children[index]
-	} else {
-		return nil // This child is a leaf.
-	}
-}
-
-type treeAdapter struct {
-	treeAdapterNode
-	onDataChanged  gxui.Event
-	onDataReplaced gxui.Event
-}
-
-func (a treeAdapter) Size(theme gxui.Theme) math.Size {
-	return math.Size{W: math.MaxSize.W, H: 20}
-}
-
-func (a treeAdapter) OnDataChanged(f func()) gxui.EventSubscription {
-	if a.onDataChanged == nil {
-		a.onDataChanged = gxui.CreateEvent(f)
-	}
-	return a.onDataChanged.Listen(f)
-}
-
-func (a treeAdapter) OnDataReplaced(f func()) gxui.EventSubscription {
-	if a.onDataReplaced == nil {
-		a.onDataReplaced = gxui.CreateEvent(f)
-	}
-	return a.onDataReplaced.Listen(f)
 }
 
 func appMain(driver gxui.Driver) {
 	theme := dark.CreateTheme(driver)
 
-	node := func(item string, children ...treeAdapterNode) treeAdapterNode {
-		return treeAdapterNode{
-			children: children,
-			item:     item,
-		}
+	// helper function for building nodes using variadics for the children.
+	newItem := func(name string, children ...*item) *item {
+		return &item{name, children}
 	}
 
 	layout := theme.CreateLinearLayout()
 	layout.SetOrientation(gxui.Vertical)
 
-	adapter := treeAdapter{}
-	adapter.children = []treeAdapterNode{
-		node("Animals",
-			node("Mammals",
-				node("Cats"),
-				node("Dogs"),
-				node("Horses"),
-				node("Duck-billed platypuses"),
-			),
-			node("Birds",
-				node("Peacocks"),
-				node("Doves"),
-			),
-			node("Reptiles",
-				node("Lizards"),
-				node("Turtles"),
-				node("Crocodiles"),
-				node("Snakes"),
-			),
-			node("Amphibians",
-				node("Frogs"),
-				node("Toads"),
-			),
-			node("Arthropods",
-				node("Crustaceans",
-					node("Crabs"),
-					node("Lobsters"),
-				),
-				node("Insects",
-					node("Ants"),
-					node("Bees"),
-				),
-				node("Arachnids",
-					node("Spiders"),
-					node("Scorpions"),
-				),
-			),
+	mammals := newItem("Mammals",
+		newItem("Cats"),
+		newItem("Dogs"),
+		newItem("Horses"),
+		newItem("Duck-billed platypuses"),
+	)
+
+	birds := newItem("Birds",
+		newItem("Peacocks"),
+		newItem("Doves"),
+	)
+
+	reptiles := newItem("Reptiles",
+		newItem("Lizards"),
+		newItem("Turtles"),
+		newItem("Crocodiles"),
+		newItem("Snakes"),
+	)
+
+	amphibians := newItem("Amphibians",
+		newItem("Frogs"),
+		newItem("Toads"),
+	)
+
+	arthropods := newItem("Arthropods",
+		newItem("Crustaceans",
+			newItem("Crabs"),
+			newItem("Lobsters"),
 		),
-	}
+		newItem("Insects",
+			newItem("Ants"),
+			newItem("Bees"),
+		),
+		newItem("Arachnids",
+			newItem("Spiders"),
+			newItem("Scorpions"),
+		),
+	)
+
+	adapter := gxui.CreateDefaultAdapter()
+	adapter.SetSize(math.Size{W: math.MaxSize.W, H: 18})
+	adapter.SetItems(newItem("Animals", mammals, birds, reptiles, amphibians, arthropods))
 
 	tree := theme.CreateTree()
 	tree.SetAdapter(adapter)
-	tree.Select("Duck-billed platypuses")
+	tree.Select(amphibians)
 	tree.Show(tree.Selected())
 
 	layout.AddChild(tree)

@@ -29,12 +29,12 @@ type Adapter interface {
 	// ItemIndex returns the index of item.
 	ItemIndex(item AdapterItem) int
 
+	// Create returns a Control visualizing the item at the specified index.
+	Create(theme Theme, index int) Control
+
 	// Size returns the size that each of the item's controls will be displayed
 	// at for the given theme.
 	Size(Theme) math.Size
-
-	// Create returns a Control visualizing the item at the specified index.
-	Create(theme Theme, index int) Control
 
 	// OnDataChanged registers f to be called when there is a partial change in
 	// the items of the adapter.
